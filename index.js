@@ -85,7 +85,7 @@ async function run() {
 
     //user management
     //get all users
-    app.get('/user',verifyJWT,async (req, res) => {
+    app.get('/user', verifyJWT, async (req, res) => {
       res.send(await userCollections.find().toArray());
     });
 
@@ -98,6 +98,14 @@ async function run() {
       const result = await userCollections.updateOne(filter, updatedDoc, options);
       const token = jwt.sign({ email: user.email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d' });
       res.send({ result, token });
+    });
+    //making someone admin
+    app.put('/user/admin/:email', async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const updatedDoc = { $set: { role: 'admin' } };
+      const result = await userCollections.updateOne(filter, updatedDoc);
+      res.send(result);
     });
   } finally {
 
