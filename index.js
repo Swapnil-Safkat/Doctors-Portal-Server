@@ -6,7 +6,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
 
-//middlewire
+//middlewires
 app.use(cors());
 app.use(express.json());
 
@@ -88,7 +88,13 @@ async function run() {
     app.get('/user', verifyJWT, async (req, res) => {
       res.send(await userCollections.find().toArray());
     });
-
+    //getting admin
+    app.get('/admin/:email', async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollections.findOne({ email: email });
+      if (user.role === 'admin') res.send({ isAdmin: true });
+      else res.send({ isAdmin: false });
+    });
     //update or inset an user
     app.put('/user', async (req, res) => {
       const user = req.body;
@@ -100,12 +106,18 @@ async function run() {
       res.send({ result, token });
     });
     //making someone admin
-    app.put('/user/admin/:email', async (req, res) => {
+    app.put('/user/admin/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
-      const filter = { email: email };
-      const updatedDoc = { $set: { role: 'admin' } };
-      const result = await userCollections.updateOne(filter, updatedDoc);
-      res.send(result);
+      const requester = req.decoded.email;
+      const requesterInfo = await userCollections.findOne({ email: requester });
+      if (requesterInfo.role === 'admin') {
+        const filter = { email: email };
+        const updatedDoc = { $set: { role: 'admin' } };
+        const result = await userCollections.updateOne(filter, updatedDoc);
+        res.send(result);
+      } else {
+        res.status(403).send({ message: 'forbidden' });
+      }
     });
   } finally {
 
