@@ -40,12 +40,22 @@ async function run() {
     const servicesCollections = client.db('DoctorsPortal').collection('services');
     const bookingCollections = client.db('DoctorsPortal').collection('bookings');
     const userCollections = client.db('DoctorsPortal').collection('users');
+    const doctorCollections = client.db('DoctorsPortal').collection('doctor');
+
+    //verify admin
+    const verifyAdmin = async (req, res, next) => {
+      const requester = req.decoded.email;
+      const requesterInfo = await userCollections.findOne({ email: requester });
+      if (requesterInfo.role === 'admin') {
+        next();
+      } else {
+        res.status(403).send({ message: 'forbidden' });
+      }
+    };
 
     // get all services
     app.get('/services', async (req, res) => {
-      const cursor = servicesCollections.find({});
-      const services = await cursor.toArray();
-      res.send(services);
+      res.send(await servicesCollections.find({}).project({ name: 1 }).toArray());
     });
 
     //get available appointments
@@ -61,6 +71,12 @@ async function run() {
         service.slots = availableSlots; //set the new available slots to the specific service, without available slots
       })
       res.send(services);
+    });
+
+    //doctor managment
+    app.post('/doctor', verifyJWT,verifyAdmin,async (req, res) => {
+      const doctor = req.body;
+      res.send(await doctorCollections.insertOne(doctor));
     });
 
     //send a booking
@@ -106,18 +122,12 @@ async function run() {
       res.send({ result, token });
     });
     //making someone admin
-    app.put('/user/admin/:email', verifyJWT, async (req, res) => {
+    app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
-      const requester = req.decoded.email;
-      const requesterInfo = await userCollections.findOne({ email: requester });
-      if (requesterInfo.role === 'admin') {
-        const filter = { email: email };
-        const updatedDoc = { $set: { role: 'admin' } };
-        const result = await userCollections.updateOne(filter, updatedDoc);
-        res.send(result);
-      } else {
-        res.status(403).send({ message: 'forbidden' });
-      }
+      const filter = { email: email };
+      const updatedDoc = { $set: { role: 'admin' } };
+      const result = await userCollections.updateOne(filter, updatedDoc);
+      res.send(result);
     });
   } finally {
 
